@@ -1,0 +1,224 @@
+diff --git a/node_modules/astro/dist/core/config/schema.d.ts b/node_modules/astro/dist/core/config/schema.d.ts
+index faef681..8771fcf 100644
+--- a/node_modules/astro/dist/core/config/schema.d.ts
++++ b/node_modules/astro/dist/core/config/schema.d.ts
+@@ -1,7 +1,9 @@
++/// <reference types="node" />
+ import type { RehypePlugin, RemarkPlugin, RemarkRehype } from '@astrojs/markdown-remark';
+ import type { ILanguageRegistration, IThemeRegistration, Theme } from 'shiki';
+ import type { ViteUserConfig } from '../../@types/astro';
+ import { z } from 'zod';
++import { OutgoingHttpHeaders } from 'http';
+ export declare const AstroConfigSchema: z.ZodObject<{
+     root: z.ZodEffects<z.ZodDefault<z.ZodOptional<z.ZodString>>, URL, string | undefined>;
+     srcDir: z.ZodEffects<z.ZodDefault<z.ZodOptional<z.ZodString>>, URL, string | undefined>;
+@@ -53,13 +55,17 @@ export declare const AstroConfigSchema: z.ZodObject<{
+     server: z.ZodEffects<z.ZodDefault<z.ZodOptional<z.ZodObject<{
+         host: z.ZodDefault<z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodBoolean]>>>;
+         port: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
++        headers: z.ZodOptional<z.ZodType<OutgoingHttpHeaders, z.ZodTypeDef, OutgoingHttpHeaders>>;
+     }, "strip", z.ZodTypeAny, {
++        headers?: OutgoingHttpHeaders | undefined;
+         host: string | boolean;
+         port: number;
+     }, {
+         host?: string | boolean | undefined;
+         port?: number | undefined;
++        headers?: OutgoingHttpHeaders | undefined;
+     }>>>, {
++        headers?: OutgoingHttpHeaders | undefined;
+         host: string | boolean;
+         port: number;
+     }, unknown>;
+@@ -161,6 +167,7 @@ export declare const AstroConfigSchema: z.ZodObject<{
+     root: URL;
+     publicDir: URL;
+     server: {
++        headers?: OutgoingHttpHeaders | undefined;
+         host: string | boolean;
+         port: number;
+     };
+@@ -284,13 +291,17 @@ export declare function createRelativeSchema(cmd: string, fileProtocolRoot: URL)
+     server: z.ZodEffects<z.ZodDefault<z.ZodOptional<z.ZodObject<{
+         host: z.ZodDefault<z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodBoolean]>>>;
+         port: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
++        headers: z.ZodOptional<z.ZodType<OutgoingHttpHeaders, z.ZodTypeDef, OutgoingHttpHeaders>>;
+     }, "strip", z.ZodTypeAny, {
++        headers?: OutgoingHttpHeaders | undefined;
+         host: string | boolean;
+         port: number;
+     }, {
+         host?: string | boolean | undefined;
+         port?: number | undefined;
++        headers?: OutgoingHttpHeaders | undefined;
+     }>>>, {
++        headers?: OutgoingHttpHeaders | undefined;
+         host: string | boolean;
+         port: number;
+     }, unknown>;
+@@ -393,16 +404,20 @@ export declare function createRelativeSchema(cmd: string, fileProtocolRoot: URL)
+     server: z.ZodEffects<z.ZodDefault<z.ZodOptional<z.ZodObject<{
+         host: z.ZodDefault<z.ZodOptional<z.ZodUnion<[z.ZodString, z.ZodBoolean]>>>;
+         port: z.ZodDefault<z.ZodOptional<z.ZodNumber>>;
++        headers: z.ZodOptional<z.ZodType<OutgoingHttpHeaders, z.ZodTypeDef, OutgoingHttpHeaders>>;
+         streaming: z.ZodDefault<z.ZodOptional<z.ZodBoolean>>;
+     }, "strip", z.ZodTypeAny, {
++        headers?: OutgoingHttpHeaders | undefined;
+         host: string | boolean;
+         port: number;
+         streaming: boolean;
+     }, {
+         host?: string | boolean | undefined;
+         port?: number | undefined;
++        headers?: OutgoingHttpHeaders | undefined;
+         streaming?: boolean | undefined;
+     }>>>, {
++        headers?: OutgoingHttpHeaders | undefined;
+         host: string | boolean;
+         port: number;
+         streaming: boolean;
+@@ -452,6 +467,7 @@ export declare function createRelativeSchema(cmd: string, fileProtocolRoot: URL)
+     root: URL;
+     publicDir: URL;
+     server: {
++        headers?: OutgoingHttpHeaders | undefined;
+         host: string | boolean;
+         port: number;
+         streaming: boolean;
+@@ -544,6 +560,7 @@ export declare function createRelativeSchema(cmd: string, fileProtocolRoot: URL)
+     root: URL;
+     publicDir: URL;
+     server: {
++        headers?: OutgoingHttpHeaders | undefined;
+         host: string | boolean;
+         port: number;
+         streaming: boolean;
+diff --git a/node_modules/astro/dist/core/config/schema.js b/node_modules/astro/dist/core/config/schema.js
+index e283af0..2ad25a5 100644
+--- a/node_modules/astro/dist/core/config/schema.js
++++ b/node_modules/astro/dist/core/config/schema.js
+@@ -65,7 +65,8 @@ const AstroConfigSchema = z.object({
+     (val) => typeof val === "function" ? val({ command: "error" }) : val,
+     z.object({
+       host: z.union([z.string(), z.boolean()]).optional().default(ASTRO_CONFIG_DEFAULTS.server.host),
+-      port: z.number().optional().default(ASTRO_CONFIG_DEFAULTS.server.port)
++      port: z.number().optional().default(ASTRO_CONFIG_DEFAULTS.server.port),
++      headers: z.custom().optional()
+     }).optional().default({})
+   ),
+   style: z.object({
+@@ -152,6 +153,7 @@ function createRelativeSchema(cmd, fileProtocolRoot) {
+       z.object({
+         host: z.union([z.string(), z.boolean()]).optional().default(ASTRO_CONFIG_DEFAULTS.server.host),
+         port: z.number().optional().default(ASTRO_CONFIG_DEFAULTS.server.port),
++        headers: z.custom().optional(),
+         streaming: z.boolean().optional().default(true)
+       }).optional().default({})
+     ),
+diff --git a/node_modules/astro/dist/core/dev/container.js b/node_modules/astro/dist/core/dev/container.js
+index 1cce547..c432f3c 100644
+--- a/node_modules/astro/dist/core/dev/container.js
++++ b/node_modules/astro/dist/core/dev/container.js
+@@ -30,12 +30,12 @@ async function createContainer(params = {}) {
+     logging,
+     isRestart
+   });
+-  const { host } = settings.config.server;
++  const { host, headers } = settings.config.server;
+   const rendererClientEntries = settings.renderers.map((r) => r.clientEntrypoint).filter(Boolean);
+   const viteConfig = await createVite(
+     {
+       mode: "development",
+-      server: { host },
++      server: { host, headers },
+       optimizeDeps: {
+         include: rendererClientEntries
+       },
+diff --git a/node_modules/astro/dist/core/preview/index.js b/node_modules/astro/dist/core/preview/index.js
+index c73ad2f..6202c45 100644
+--- a/node_modules/astro/dist/core/preview/index.js
++++ b/node_modules/astro/dist/core/preview/index.js
+@@ -11,9 +11,9 @@ async function preview(_settings, { logging }) {
+   });
+   await runHookConfigDone({ settings, logging });
+   const host = getResolvedHostForHttpServer(settings.config.server.host);
+-  const { port } = settings.config.server;
++  const { port, headers } = settings.config.server;
+   if (settings.config.output === "static") {
+-    const server2 = await createStaticPreviewServer(settings, { logging, host, port });
++    const server2 = await createStaticPreviewServer(settings, { logging, host, port, headers });
+     return server2;
+   }
+   if (!settings.adapter) {
+diff --git a/node_modules/astro/dist/core/preview/static-preview-server.d.ts b/node_modules/astro/dist/core/preview/static-preview-server.d.ts
+index 00e5e6b..f46756e 100644
+--- a/node_modules/astro/dist/core/preview/static-preview-server.d.ts
++++ b/node_modules/astro/dist/core/preview/static-preview-server.d.ts
+@@ -1,7 +1,7 @@
+ /// <reference types="node" />
+ import type { AstroSettings } from '../../@types/astro';
+ import type { LogOptions } from '../logger/core';
+-import http from 'http';
++import http, { OutgoingHttpHeaders } from 'http';
+ export interface PreviewServer {
+     host?: string;
+     port: number;
+@@ -10,8 +10,9 @@ export interface PreviewServer {
+     stop(): Promise<void>;
+ }
+ /** The primary dev action */
+-export default function createStaticPreviewServer(settings: AstroSettings, { logging, host, port }: {
++export default function createStaticPreviewServer(settings: AstroSettings, { logging, host, port, headers, }: {
+     logging: LogOptions;
+     host: string | undefined;
+     port: number;
++    headers: OutgoingHttpHeaders | undefined;
+ }): Promise<PreviewServer>;
+diff --git a/node_modules/astro/dist/core/preview/static-preview-server.js b/node_modules/astro/dist/core/preview/static-preview-server.js
+index 8acfc53..6267279 100644
+--- a/node_modules/astro/dist/core/preview/static-preview-server.js
++++ b/node_modules/astro/dist/core/preview/static-preview-server.js
+@@ -7,7 +7,12 @@ import { notFoundTemplate, subpathNotUsedTemplate } from "../../template/4xx.js"
+ import { error, info } from "../logger/core.js";
+ import * as msg from "../messages.js";
+ const HAS_FILE_EXTENSION_REGEXP = /^.*\.[^\\]+$/;
+-async function createStaticPreviewServer(settings, { logging, host, port }) {
++async function createStaticPreviewServer(settings, {
++  logging,
++  host,
++  port,
++  headers
++}) {
+   const startServerTime = performance.now();
+   const defaultOrigin = "http://localhost";
+   const trailingSlash = settings.config.trailingSlash;
+@@ -15,7 +20,13 @@ async function createStaticPreviewServer(settings, { logging, host, port }) {
+   const staticFileServer = sirv(fileURLToPath(settings.config.outDir), {
+     dev: true,
+     etag: true,
+-    maxAge: 0
++    maxAge: 0,
++    setHeaders: (res, pathname, stats) => {
++      for (const [name, value] of Object.entries(headers ?? {})) {
++        if (value)
++          res.setHeader(name, value);
++      }
++    }
+   });
+   const server = http.createServer((req, res) => {
+     var _a;
+diff --git a/node_modules/astro/dist/vite-plugin-astro-server/route.js b/node_modules/astro/dist/vite-plugin-astro-server/route.js
+index 974e1ec..ad7c00d 100644
+--- a/node_modules/astro/dist/vite-plugin-astro-server/route.js
++++ b/node_modules/astro/dist/vite-plugin-astro-server/route.js
+@@ -92,6 +92,10 @@ async function handleRoute(matchedRoute, url, pathname, body, origin, env, manif
+     ssr: buildingToSSR,
+     clientAddress: buildingToSSR ? req.socket.remoteAddress : void 0
+   });
++  for (const [name, value] of Object.entries(config.server.headers ?? {})) {
++    if (value)
++      res.setHeader(name, value);
++  }
+   const paramsAndPropsRes = await getParamsAndProps({
+     mod,
+     route,

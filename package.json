@@ -1,0 +1,24 @@
+{
+  "name": "@opsbr/sample-ruby-web-worker",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "postinstall": "patch-package && npm run download-ruby",
+    "download-ruby": "node scripts/download-ruby.mjs",
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro"
+  },
+  "dependencies": {
+    "astro": "1.6.14",
+    "uwasi": "^1.1.0"
+  },
+  "devDependencies": {
+    "patch-package": "^6.5.0",
+    "tar": "^6.1.13"
+  }
+}
